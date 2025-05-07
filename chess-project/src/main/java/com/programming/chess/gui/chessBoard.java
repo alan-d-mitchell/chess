@@ -12,7 +12,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.swing.ImageIcon;
@@ -56,6 +58,9 @@ public class chessBoard extends JFrame {
     private boolean isBlackKingInCheck = false;
     private int whiteKingRow = 7, whiteKingCol = 4; // Initial positions
     private int blackKingRow = 0, blackKingCol = 4; // Initial positions
+    
+    // Track pawns that can do en passant captures
+    private List<int[]> enPassantPawns = new ArrayList<>();
 
     public chessBoard() {
         super("Chess");
@@ -154,6 +159,22 @@ public class chessBoard extends JFrame {
                             // Check if this is a castling move
                             boolean isCastling = draggedPiece.startsWith("king") && Math.abs(dragSourceCol - col) == 2;
                             
+                            // Check if this is an en passant capture
+                            boolean isEnPassant = validateMove.isEnPassantCapture(dragSourceRow, dragSourceCol, row, col, draggedPiece);
+                            
+                            if (isEnPassant) {
+                                // Get the position of the captured pawn
+                                int[] capturedPos = validateMove.getEnPassantCapturedPawnPosition(row, col);
+                                if (capturedPos != null) {
+                                    // Set the captured piece
+                                    capturedPiece = board[capturedPos[0]][capturedPos[1]];
+                                    // Remove the captured pawn from the board
+                                    board[capturedPos[0]][capturedPos[1]] = null;
+                                    System.out.println("En passant capture: " + capturedPiece + " at " + 
+                                                     (char)('a' + capturedPos[1]) + (8 - capturedPos[0]));
+                                }
+                            }
+                            
                             // Update king position tracking for kings
                             if (draggedPiece.equals("kingW")) {
                                 whiteKingRow = row;
@@ -174,6 +195,9 @@ public class chessBoard extends JFrame {
                             // Record the move in game state
                             state.makeMove(dragSourceRow, dragSourceCol, row, col, draggedPiece, capturedPiece);
                             
+                            // Update pawns that can do en passant after the move
+                            updateEnPassantPawns();
+                            
                             // Check for check/checkmate
                             String opponentColor = state.getCurrentPlayer(); // Current player is the opponent now
                             boolean isInCheck = detectCheck.isCheck(board, opponentColor);
@@ -193,7 +217,7 @@ public class chessBoard extends JFrame {
                             // Add the move to the move history display with check/checkmate status
                             moveHistoryPanel.addMove(
                                 dragSourceRow, dragSourceCol, row, col, 
-                                draggedPiece, capturedPiece, isCastling,
+                                draggedPiece, capturedPiece, isCastling, isEnPassant,
                                 board, isWhiteTurn, isInCheck, isInCheckMate);
                             
                             // Toggle turn for move display
@@ -261,6 +285,39 @@ public class chessBoard extends JFrame {
     }
     
     /**
+     * Update the list of pawns that can perform en passant captures
+     */
+    private void updateEnPassantPawns() {
+        enPassantPawns.clear();
+        
+        // Only check if en passant is possible
+        int enPassantCol = state.getEnPassantCol();
+        int enPassantRow = state.getEnPassantRow();
+        
+        if (enPassantCol == -1 || enPassantRow == -1) {
+            return; // No en passant possible
+        }
+        
+        // Get the player who can perform en passant (current player)
+        String currentPlayer = state.getCurrentPlayer();
+        
+        // Search for pawns that can perform en passant
+        // They must be on the same rank as the en passant target and adjacent files
+        for (int adjacentCol = enPassantCol - 1; adjacentCol <= enPassantCol + 1; adjacentCol += 2) {
+            if (adjacentCol < 0 || adjacentCol >= BOARD_SIZE) {
+                continue; // Skip if outside the board
+            }
+            
+            // Check if there's a pawn of the current player at this position
+            String piece = board[enPassantRow][adjacentCol];
+            if (piece != null && piece.equals("pawn" + currentPlayer)) {
+                // This pawn can perform en passant
+                enPassantPawns.add(new int[] {enPassantRow, adjacentCol});
+            }
+        }
+    }
+    
+    /**
      * Validate a move using basic validation
      */
     private boolean validateBoardMove(int fromRow, int fromCol, int toRow, int toCol, String piece) {
@@ -310,6 +367,7 @@ public class chessBoard extends JFrame {
         Color darkSquare = new Color(121, 154, 176);
         Color dragSourceHighlight = new Color(255, 165, 0, 120); // Orange with transparency
         Color checkHighlight = new Color(255, 0, 0, 120); // Red with transparency
+        Color enPassantHighlight = new Color(0, 255, 0, 120); // Green with transparency for pawns that can do en passant
 
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
@@ -324,6 +382,14 @@ public class chessBoard extends JFrame {
                 if (isDragging && row == dragSourceRow && col == dragSourceCol) {
                     g.setColor(dragSourceHighlight);
                     g.fillRect(x, y, squareSize, squareSize);
+                }
+                
+                // Highlight pawns that can perform en passant capture
+                for (int[] pawn : enPassantPawns) {
+                    if (row == pawn[0] && col == pawn[1]) {
+                        g.setColor(enPassantHighlight);
+                        g.fillRect(x, y, squareSize, squareSize);
+                    }
                 }
                 
                 // Highlight king in check with red
@@ -401,6 +467,9 @@ public class chessBoard extends JFrame {
         // Reset check status
         isWhiteKingInCheck = false;
         isBlackKingInCheck = false;
+        
+        // Reset en passant pawns
+        enPassantPawns.clear();
         
         // Reset game state
         state.resetGame();

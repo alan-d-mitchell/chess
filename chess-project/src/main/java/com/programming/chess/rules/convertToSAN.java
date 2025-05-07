@@ -16,7 +16,8 @@ public class convertToSAN {
      * @param isCheckMate Whether the move results in checkmate
      * @return The move in standard algebraic notation (e.g., "e4", "Nf3+", "Qd1#")
      */
-    public static String toStandardAlgebraicNotation(Move move, String[][] boardState, boolean isCheck, boolean isCheckMate) {
+    public static String toStandardAlgebraicNotation(Move move, String[][] boardState, 
+                                                 boolean isCheck, boolean isCheckMate) {
         // If it's a castling move, return appropriate notation
         if (move.isCastling()) {
             String notation = move.getCastlingSide().equals("kingside") ? "O-O" : "O-O-O";
@@ -42,7 +43,7 @@ public class convertToSAN {
         }
         
         // Handle captures
-        boolean isCapture = (move.capturedPiece != null);
+        boolean isCapture = (move.capturedPiece != null || move.isEnPassantCapture());
         if (isCapture) {
             // For pawn captures, include the departure file
             if (pieceType == 'P') {
@@ -97,8 +98,9 @@ public class convertToSAN {
      * This method creates a gameState.Move and then converts it to SAN
      */
     public static String externalMoveToSAN(int fromRow, int fromCol, int toRow, int toCol, 
-                                         String piece, String capturedPiece, boolean isCastling,
-                                         String[][] boardState, boolean isCheck, boolean isCheckMate) {
+                                         String piece, String capturedPiece, boolean isCastling, 
+                                         boolean isEnPassant, String[][] boardState, 
+                                         boolean isCheck, boolean isCheckMate) {
         // Get the gameState instance
         gameState state = gameState.getInstance();
         
@@ -113,8 +115,23 @@ public class convertToSAN {
             tempMove.setCastlingSide(isKingside ? "kingside" : "queenside");
         }
         
+        // Set en passant information if needed
+        if (isEnPassant) {
+            tempMove.setEnPassantCapture(true);
+        }
+        
         // Use the standard notation converter with check/checkmate info
         return toStandardAlgebraicNotation(tempMove, boardState, isCheck, isCheckMate);
+    }
+    
+    /**
+     * Overloaded method for backward compatibility without en passant
+     */
+    public static String externalMoveToSAN(int fromRow, int fromCol, int toRow, int toCol, 
+                                         String piece, String capturedPiece, boolean isCastling,
+                                         String[][] boardState, boolean isCheck, boolean isCheckMate) {
+        return externalMoveToSAN(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, false,
+                               boardState, isCheck, isCheckMate);
     }
     
     /**
@@ -123,6 +140,7 @@ public class convertToSAN {
     public static String externalMoveToSAN(int fromRow, int fromCol, int toRow, int toCol, 
                                          String piece, String capturedPiece, boolean isCastling,
                                          String[][] boardState) {
-        return externalMoveToSAN(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState, false, false);
+        return externalMoveToSAN(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, false,
+                               boardState, false, false);
     }
 }

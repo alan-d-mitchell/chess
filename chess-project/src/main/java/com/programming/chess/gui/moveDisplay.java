@@ -64,28 +64,41 @@ public class moveDisplay extends JPanel {
      * @param piece The piece being moved
      * @param capturedPiece The captured piece, if any (null if none)
      * @param isCastling Whether this is a castling move
+     * @param isEnPassant Whether this is an en passant capture
      * @param boardState Current board state
      * @param isWhiteMove True if it's white's move
      * @param isCheck True if the move results in check
      * @param isCheckMate True if the move results in checkmate
      */
     public void addMove(int fromRow, int fromCol, int toRow, int toCol, String piece, 
-                       String capturedPiece, boolean isCastling, 
+                       String capturedPiece, boolean isCastling, boolean isEnPassant,
                        String[][] boardState, boolean isWhiteMove,
                        boolean isCheck, boolean isCheckMate) {
         String notation = convertToSAN.externalMoveToSAN(
-            fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState, isCheck, isCheckMate);
+            fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, isEnPassant,
+            boardState, isCheck, isCheckMate);
         addMove(notation, isWhiteMove);
     }
     
     /**
-     * Adds a move to the history using coordinates and board state.
-     * Overloaded method for backward compatibility.
+     * Overloaded method for backward compatibility without en passant
+     */
+    public void addMove(int fromRow, int fromCol, int toRow, int toCol, String piece, 
+                       String capturedPiece, boolean isCastling, 
+                       String[][] boardState, boolean isWhiteMove,
+                       boolean isCheck, boolean isCheckMate) {
+        addMove(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, false,
+              boardState, isWhiteMove, isCheck, isCheckMate);
+    }
+    
+    /**
+     * Overloaded method for backward compatibility
      */
     public void addMove(int fromRow, int fromCol, int toRow, int toCol, String piece, 
                        String capturedPiece, boolean isCastling, 
                        String[][] boardState, boolean isWhiteMove) {
-        addMove(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState, isWhiteMove, false, false);
+        addMove(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, false,
+              boardState, isWhiteMove, false, false);
     }
     
     /**

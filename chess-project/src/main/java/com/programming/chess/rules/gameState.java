@@ -16,6 +16,10 @@ public class gameState {
     
     // Track whether kings and rooks have moved (needed for castling)
     private Map<String, Boolean> pieceHasMoved;
+    
+    // En passant tracking
+    private int enPassantCol = -1;  // Column where en passant capture is possible (-1 if not possible)
+    private int enPassantRow = -1;  // Row where en passant capture is possible (-1 if not possible)
 
     private static gameState instance;
 
@@ -46,6 +50,10 @@ public class gameState {
         pieceHasMoved.put("rookW_7", false); // White queenside rook (a1)
         pieceHasMoved.put("rookB_0", false); // Black kingside rook (h8)
         pieceHasMoved.put("rookB_7", false); // Black queenside rook (a8)
+        
+        // Reset en passant tracking
+        enPassantCol = -1;
+        enPassantRow = -1;
     }
 
     public void resetGame() {
@@ -86,11 +94,50 @@ public class gameState {
             String rookKey = piece + "_" + fromCol;
             pieceHasMoved.put(rookKey, true);
         }
+        
+        // Reset en passant tracking by default
+        enPassantCol = -1;
+        enPassantRow = -1;
+        
+        // Check for en passant possibility - pawn moving two squares
+        if (piece.startsWith("pawn") && Math.abs(fromRow - toRow) == 2) {
+            enPassantCol = toCol;
+            // The row where the capturing pawn would go is between the from and to rows
+            enPassantRow = (fromRow + toRow) / 2;
+            move.setEnPassantTarget(enPassantCol, enPassantRow);
+        }
+        
+        // Check if this was an en passant capture
+        if (piece.startsWith("pawn") && fromCol != toCol && capturedPiece == null) {
+            // This is likely an en passant capture
+            move.setEnPassantCapture(true);
+        }
 
         switchTurn();
 
         // The status message will be updated when check status is set
         statusMessage = (currentPlayer.equals("W") ? "White" : "Black") + "'s turn to move";
+    }
+
+    /**
+     * Get the column where en passant is possible
+     */
+    public int getEnPassantCol() {
+        return enPassantCol;
+    }
+    
+    /**
+     * Get the row where en passant is possible
+     */
+    public int getEnPassantRow() {
+        return enPassantRow;
+    }
+    
+    /**
+     * Check if en passant is possible at a specific location
+     */
+    public boolean isEnPassantPossible(int col, int row) {
+        return col == enPassantCol && row == enPassantRow;
     }
 
     /**
@@ -213,6 +260,9 @@ public class gameState {
         public String capturedPiece;
         private boolean isCastling = false;
         private String castlingSide = null;
+        private boolean isEnPassantCapture = false;
+        private int enPassantTargetCol = -1;
+        private int enPassantTargetRow = -1;
         
         public Move(int fromRow, int fromCol, int toRow, int toCol, String piece, String capturedPiece) {
             this.fromRow = fromRow;
@@ -239,6 +289,27 @@ public class gameState {
             return castlingSide;
         }
         
+        public void setEnPassantCapture(boolean isEnPassantCapture) {
+            this.isEnPassantCapture = isEnPassantCapture;
+        }
+        
+        public boolean isEnPassantCapture() {
+            return isEnPassantCapture;
+        }
+        
+        public void setEnPassantTarget(int col, int row) {
+            this.enPassantTargetCol = col;
+            this.enPassantTargetRow = row;
+        }
+        
+        public int getEnPassantTargetCol() {
+            return enPassantTargetCol;
+        }
+        
+        public int getEnPassantTargetRow() {
+            return enPassantTargetRow;
+        }
+        
         @Override
         public String toString() {
             // Convert to chess notation
@@ -252,7 +323,8 @@ public class gameState {
             }
             
             return piece + ": " + fromFile + fromRank + " to " + toFile + toRank + 
-                  (capturedPiece != null ? " captures " + capturedPiece : "");
+                  (capturedPiece != null ? " captures " + capturedPiece : "") +
+                  (isEnPassantCapture ? " (en passant)" : "");
         }
     }
 }

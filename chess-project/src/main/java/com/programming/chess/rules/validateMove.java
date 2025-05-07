@@ -108,9 +108,18 @@ public class validateMove {
         }
         
         // Check for diagonal capture
-        if (Math.abs(fromCol - toCol) == 1 && toRow == fromRow + direction && 
-            board[toRow][toCol] != null && !getPieceColor(board[toRow][toCol]).equals(pieceColor)) {
-            return true;
+        if (Math.abs(fromCol - toCol) == 1 && toRow == fromRow + direction) {
+            // Normal capture
+            if (board[toRow][toCol] != null && !getPieceColor(board[toRow][toCol]).equals(pieceColor)) {
+                return true;
+            }
+            
+            // En passant capture check
+            gameState state = gameState.getInstance();
+            if (board[toRow][toCol] == null && state.isEnPassantPossible(toCol, toRow)) {
+                // The pawn is moving to an en passant square
+                return true;
+            }
         }
         
         return false;
@@ -204,14 +213,14 @@ public class validateMove {
             // Check if castling is allowed
             gameState state = gameState.getInstance();
             if (state.canCastle(pieceColor, castleSide)) {
-                return isValidCastling(fromRow, fromCol, toRow, toCol, pieceColor, castleSide);
+                return isValidCastling(board, fromRow, fromCol, toRow, toCol, pieceColor, castleSide);
             }
         }
         
         return false;
     }
     
-    private static boolean isValidCastling(int fromRow, int fromCol, int toRow, int toCol, 
+    private static boolean isValidCastling(String[][] board, int fromRow, int fromCol, int toRow, int toCol, 
                                           String pieceColor, String castleSide) {
         // Castling requires empty squares between king and rook
         // For the current board state, we need to check if the path is clear
@@ -237,7 +246,12 @@ public class validateMove {
             
             // Check if squares between king and rook are empty
             // f1/f8 (5) must be empty
-            return true; // Assuming the validateMove already checked if path is clear
+            if (board[fromRow][5] != null || board[fromRow][6] != null) {
+                return false;
+            }
+            
+            // King cannot castle through or into check
+            // This would be checked by the main validation
         } else { // queenside
             // King moves from e1/e8 (4) to c1/c8 (2)
             if (toCol != 2) {
@@ -246,7 +260,51 @@ public class validateMove {
             
             // Check if squares between king and rook are empty
             // b1/b8 (1), c1/c8 (2), d1/d8 (3) must be empty
-            return true; // Assuming the validateMove already checked if path is clear
+            if (board[fromRow][1] != null || board[fromRow][2] != null || board[fromRow][3] != null) {
+                return false;
+            }
+            
+            // King cannot castle through or into check
+            // This would be checked by the main validation
         }
+        
+        return true;
+    }
+    
+    /**
+     * Check if a move is an en passant capture
+     */
+    public static boolean isEnPassantCapture(int fromRow, int fromCol, int toRow, int toCol, String piece) {
+        // Must be a pawn
+        if (!piece.startsWith("pawn")) {
+            return false;
+        }
+        
+        // Must be a diagonal move
+        if (Math.abs(fromCol - toCol) != 1) {
+            return false;
+        }
+        
+        // Must be to the en passant target square
+        gameState state = gameState.getInstance();
+        return state.isEnPassantPossible(toCol, toRow);
+    }
+    
+    /**
+     * Get the position of the pawn to be captured by en passant
+     */
+    public static int[] getEnPassantCapturedPawnPosition(int toRow, int toCol) {
+        gameState state = gameState.getInstance();
+        
+        // If this is a valid en passant move, the captured pawn is in the same column
+        // as the destination, but in the row where the capturing pawn started
+        if (state.isEnPassantPossible(toCol, toRow)) {
+            // For white pawns (moving up), the captured pawn is one row below
+            // For black pawns (moving down), the captured pawn is one row above
+            int capturedRow = toRow + (toRow == 2 ? 1 : -1);
+            return new int[] {capturedRow, toCol};
+        }
+        
+        return null;
     }
 }
