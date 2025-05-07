@@ -134,21 +134,13 @@ public class chessBoard extends JFrame {
             for (int col = 0; col < BOARD_SIZE; col++) {
                 String piece = board[row][col];
 
-                if (piece != null) {
-                    if (pieceImages.containsKey(piece)) {
-                        ImageIcon icon = pieceImages.get(piece);
+                if (piece != null && pieceImages.containsKey(piece)) {
+                    ImageIcon icon = pieceImages.get(piece);
+                    int x = xOffset + col * squareSize;
+                    int y = yOffset + row * squareSize;
 
-                        int x = xOffset + col * squareSize;
-                        int y = yOffset + row * squareSize;
-
-                        Image image = icon.getImage();
-                        Image scaledImage = image.getScaledInstance(squareSize, squareSize, Image.SCALE_SMOOTH);
-
-                        g.drawImage(scaledImage, x, y, null);
-                        piecesDrawn++;
-                    } else {
-                        System.out.println("Missing piece image for: " + piece + " at position " + row + "," + col);
-                    }
+                    g.drawImage(icon.getImage(), x, y, squareSize, squareSize, null);
+                    piecesDrawn++;
                 }
             }
         }
