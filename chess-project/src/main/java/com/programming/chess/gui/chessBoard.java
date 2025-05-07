@@ -20,6 +20,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import com.programming.chess.rules.detectCheck;
 import com.programming.chess.rules.gameState;
 import com.programming.chess.rules.validateMove;
 
@@ -49,6 +50,12 @@ public class chessBoard extends JFrame {
     
     // Track whose turn it is for the move display
     private boolean isWhiteTurn = true;
+    
+    // Track check status for highlighting
+    private boolean isWhiteKingInCheck = false;
+    private boolean isBlackKingInCheck = false;
+    private int whiteKingRow = 7, whiteKingCol = 4; // Initial positions
+    private int blackKingRow = 0, blackKingCol = 4; // Initial positions
 
     public chessBoard() {
         super("Chess");
@@ -147,6 +154,15 @@ public class chessBoard extends JFrame {
                             // Check if this is a castling move
                             boolean isCastling = draggedPiece.startsWith("king") && Math.abs(dragSourceCol - col) == 2;
                             
+                            // Update king position tracking for kings
+                            if (draggedPiece.equals("kingW")) {
+                                whiteKingRow = row;
+                                whiteKingCol = col;
+                            } else if (draggedPiece.equals("kingB")) {
+                                blackKingRow = row;
+                                blackKingCol = col;
+                            }
+                            
                             // Complete the move
                             board[row][col] = draggedPiece;
                             
@@ -158,11 +174,27 @@ public class chessBoard extends JFrame {
                             // Record the move in game state
                             state.makeMove(dragSourceRow, dragSourceCol, row, col, draggedPiece, capturedPiece);
                             
-                            // Add the move to the move history display
+                            // Check for check/checkmate
+                            String opponentColor = state.getCurrentPlayer(); // Current player is the opponent now
+                            boolean isInCheck = detectCheck.isCheck(board, opponentColor);
+                            boolean isInCheckMate = false;
+                            
+                            if (isInCheck) {
+                                isInCheckMate = detectCheck.isCheckMate(board, opponentColor);
+                            }
+                            
+                            // Update check status for highlighting
+                            isWhiteKingInCheck = opponentColor.equals("W") && isInCheck;
+                            isBlackKingInCheck = opponentColor.equals("B") && isInCheck;
+                            
+                            // Update game state
+                            state.setCheckStatus(isInCheck, isInCheckMate);
+                            
+                            // Add the move to the move history display with check/checkmate status
                             moveHistoryPanel.addMove(
                                 dragSourceRow, dragSourceCol, row, col, 
                                 draggedPiece, capturedPiece, isCastling,
-                                board, isWhiteTurn);
+                                board, isWhiteTurn, isInCheck, isInCheckMate);
                             
                             // Toggle turn for move display
                             isWhiteTurn = !isWhiteTurn;
@@ -277,6 +309,7 @@ public class chessBoard extends JFrame {
         Color lightSquare = new Color(204, 219, 255);
         Color darkSquare = new Color(121, 154, 176);
         Color dragSourceHighlight = new Color(255, 165, 0, 120); // Orange with transparency
+        Color checkHighlight = new Color(255, 0, 0, 120); // Red with transparency
 
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
@@ -290,6 +323,13 @@ public class chessBoard extends JFrame {
                 // Highlight source square during drag
                 if (isDragging && row == dragSourceRow && col == dragSourceCol) {
                     g.setColor(dragSourceHighlight);
+                    g.fillRect(x, y, squareSize, squareSize);
+                }
+                
+                // Highlight king in check with red
+                if ((isWhiteKingInCheck && row == whiteKingRow && col == whiteKingCol) ||
+                    (isBlackKingInCheck && row == blackKingRow && col == blackKingCol)) {
+                    g.setColor(checkHighlight);
                     g.fillRect(x, y, squareSize, squareSize);
                 }
 
@@ -351,6 +391,16 @@ public class chessBoard extends JFrame {
             board[0][col] = backRow[col] + "B";
             board[7][col] = backRow[col] + "W";
         }
+        
+        // Reset king positions
+        whiteKingRow = 7;
+        whiteKingCol = 4;
+        blackKingRow = 0;
+        blackKingCol = 4;
+        
+        // Reset check status
+        isWhiteKingInCheck = false;
+        isBlackKingInCheck = false;
         
         // Reset game state
         state.resetGame();

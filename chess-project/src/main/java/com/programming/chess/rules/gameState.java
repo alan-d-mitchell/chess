@@ -11,6 +11,8 @@ public class gameState {
     private List<Move> moveHistory; 
     private boolean activeGame;
     private String statusMessage;
+    private boolean isInCheck = false;
+    private boolean isInCheckMate = false;
     
     // Track whether kings and rooks have moved (needed for castling)
     private Map<String, Boolean> pieceHasMoved;
@@ -51,6 +53,8 @@ public class gameState {
         moveHistory.clear();
         activeGame = true;
         statusMessage = "White's turn to move";
+        isInCheck = false;
+        isInCheckMate = false;
         resetPieceMovementTracking();
     }
 
@@ -85,7 +89,41 @@ public class gameState {
 
         switchTurn();
 
+        // The status message will be updated when check status is set
         statusMessage = (currentPlayer.equals("W") ? "White" : "Black") + "'s turn to move";
+    }
+
+    /**
+     * Set the check and checkmate status
+     */
+    public void setCheckStatus(boolean inCheck, boolean inCheckMate) {
+        this.isInCheck = inCheck;
+        this.isInCheckMate = inCheckMate;
+        
+        // Update status message
+        if (isInCheckMate) {
+            statusMessage = (currentPlayer.equals("W") ? "White" : "Black") + " is in checkmate! " +
+                            (currentPlayer.equals("W") ? "Black" : "White") + " wins!";
+            activeGame = false;
+        } else if (isInCheck) {
+            statusMessage = (currentPlayer.equals("W") ? "White" : "Black") + " is in check!";
+        } else {
+            statusMessage = (currentPlayer.equals("W") ? "White" : "Black") + "'s turn to move";
+        }
+    }
+    
+    /**
+     * Check if the current player is in check
+     */
+    public boolean isInCheck() {
+        return isInCheck;
+    }
+
+    /**
+     * Check if the current player is in checkmate
+     */
+    public boolean isInCheckMate() {
+        return isInCheckMate;
     }
 
     /**

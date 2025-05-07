@@ -11,9 +11,11 @@ public class validateMove {
      * @param toRow Destination row
      * @param toCol Destination column
      * @param draggedPiece The piece being moved (needed for drag operations)
+     * @param ignoreCheck Whether to ignore check validation (used during checkmate detection)
      * @return true if the move is valid, false otherwise
      */
-    public static boolean isValidMove(String[][] board, int fromRow, int fromCol, int toRow, int toCol, String draggedPiece) {
+    public static boolean isValidMove(String[][] board, int fromRow, int fromCol, int toRow, int toCol, 
+                                    String draggedPiece, boolean ignoreCheck) {
         // Don't allow moving to the same square
         if (fromRow == toRow && fromCol == toCol) {
             return false;
@@ -46,7 +48,7 @@ public class validateMove {
         String pieceColor = getPieceColor(piece);
         
         // Validate move based on piece type
-        return switch (pieceType) {
+        boolean basicMoveValid = switch (pieceType) {
             case "pawn" -> isValidPawnMove(board, fromRow, fromCol, toRow, toCol, pieceColor);
             case "rook" -> isValidRookMove(board, fromRow, fromCol, toRow, toCol);
             case "knight" -> isValidKnightMove(fromRow, fromCol, toRow, toCol);
@@ -55,13 +57,28 @@ public class validateMove {
             case "king" -> isValidKingMove(board, fromRow, fromCol, toRow, toCol, pieceColor);
             default -> false;
         };
+        
+        // If the basic move isn't valid or we're ignoring check, return the result
+        if (!basicMoveValid || ignoreCheck) {
+            return basicMoveValid;
+        }
+        
+        // Final check: verify this move doesn't leave the king in check
+        return detectCheck.isMoveLegal(board, fromRow, fromCol, toRow, toCol, piece);
     }
     
     /**
      * Simplified version for non-drag operations
      */
     public static boolean isValidMove(String[][] board, int fromRow, int fromCol, int toRow, int toCol) {
-        return isValidMove(board, fromRow, fromCol, toRow, toCol, null);
+        return isValidMove(board, fromRow, fromCol, toRow, toCol, null, false);
+    }
+    
+    /**
+     * Simplified version when draggedPiece is provided but ignoreCheck is not
+     */
+    public static boolean isValidMove(String[][] board, int fromRow, int fromCol, int toRow, int toCol, String draggedPiece) {
+        return isValidMove(board, fromRow, fromCol, toRow, toCol, draggedPiece, false);
     }
     
     /**

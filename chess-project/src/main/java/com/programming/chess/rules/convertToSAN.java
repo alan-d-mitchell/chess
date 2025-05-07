@@ -12,12 +12,23 @@ public class convertToSAN {
      * 
      * @param move The gameState.Move object to convert
      * @param boardState The current board state
-     * @return The move in standard algebraic notation (e.g., "e4", "Nf3", "Bxe5")
+     * @param isCheck Whether the move results in check
+     * @param isCheckMate Whether the move results in checkmate
+     * @return The move in standard algebraic notation (e.g., "e4", "Nf3+", "Qd1#")
      */
-    public static String toStandardAlgebraicNotation(Move move, String[][] boardState) {
+    public static String toStandardAlgebraicNotation(Move move, String[][] boardState, boolean isCheck, boolean isCheckMate) {
         // If it's a castling move, return appropriate notation
         if (move.isCastling()) {
-            return move.getCastlingSide().equals("kingside") ? "O-O" : "O-O-O";
+            String notation = move.getCastlingSide().equals("kingside") ? "O-O" : "O-O-O";
+            
+            // Add check or checkmate symbol if needed
+            if (isCheckMate) {
+                notation += "#";
+            } else if (isCheck) {
+                notation += "+";
+            }
+            
+            return notation;
         }
         
         StringBuilder notation = new StringBuilder();
@@ -44,7 +55,21 @@ public class convertToSAN {
         notation.append((char)('a' + move.toCol));
         notation.append(8 - move.toRow); // Convert from 0-7 row index to chess 1-8 notation
         
+        // Add check or checkmate symbol if needed
+        if (isCheckMate) {
+            notation.append('#');
+        } else if (isCheck) {
+            notation.append('+');
+        }
+        
         return notation.toString();
+    }
+    
+    /**
+     * Overloaded method for backward compatibility
+     */
+    public static String toStandardAlgebraicNotation(Move move, String[][] boardState) {
+        return toStandardAlgebraicNotation(move, boardState, false, false);
     }
     
     /**
@@ -73,7 +98,7 @@ public class convertToSAN {
      */
     public static String externalMoveToSAN(int fromRow, int fromCol, int toRow, int toCol, 
                                          String piece, String capturedPiece, boolean isCastling,
-                                         String[][] boardState) {
+                                         String[][] boardState, boolean isCheck, boolean isCheckMate) {
         // Get the gameState instance
         gameState state = gameState.getInstance();
         
@@ -88,7 +113,16 @@ public class convertToSAN {
             tempMove.setCastlingSide(isKingside ? "kingside" : "queenside");
         }
         
-        // Use the standard notation converter
-        return toStandardAlgebraicNotation(tempMove, boardState);
+        // Use the standard notation converter with check/checkmate info
+        return toStandardAlgebraicNotation(tempMove, boardState, isCheck, isCheckMate);
+    }
+    
+    /**
+     * Overloaded method for backward compatibility
+     */
+    public static String externalMoveToSAN(int fromRow, int fromCol, int toRow, int toCol, 
+                                         String piece, String capturedPiece, boolean isCastling,
+                                         String[][] boardState) {
+        return externalMoveToSAN(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState, false, false);
     }
 }

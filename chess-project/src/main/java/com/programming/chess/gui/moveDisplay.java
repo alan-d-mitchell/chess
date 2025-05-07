@@ -66,13 +66,26 @@ public class moveDisplay extends JPanel {
      * @param isCastling Whether this is a castling move
      * @param boardState Current board state
      * @param isWhiteMove True if it's white's move
+     * @param isCheck True if the move results in check
+     * @param isCheckMate True if the move results in checkmate
+     */
+    public void addMove(int fromRow, int fromCol, int toRow, int toCol, String piece, 
+                       String capturedPiece, boolean isCastling, 
+                       String[][] boardState, boolean isWhiteMove,
+                       boolean isCheck, boolean isCheckMate) {
+        String notation = convertToSAN.externalMoveToSAN(
+            fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState, isCheck, isCheckMate);
+        addMove(notation, isWhiteMove);
+    }
+    
+    /**
+     * Adds a move to the history using coordinates and board state.
+     * Overloaded method for backward compatibility.
      */
     public void addMove(int fromRow, int fromCol, int toRow, int toCol, String piece, 
                        String capturedPiece, boolean isCastling, 
                        String[][] boardState, boolean isWhiteMove) {
-        String notation = convertToSAN.externalMoveToSAN(
-            fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState);
-        addMove(notation, isWhiteMove);
+        addMove(fromRow, fromCol, toRow, toCol, piece, capturedPiece, isCastling, boardState, isWhiteMove, false, false);
     }
     
     /**
