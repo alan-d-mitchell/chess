@@ -1,5 +1,10 @@
 package com.programming.chess.engine;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+
 /**
  * Java Native Interface for the C++ chess engine.
  * This class provides access to the native chess engine functionality.
@@ -12,19 +17,51 @@ public class nativeEngine {
             // Determine OS for loading the appropriate library
             String osName = System.getProperty("os.name").toLowerCase();
             String libPath;
+            String libName;
             
             if (osName.contains("windows")) {
                 libPath = "/native/windows/libchessengine.dll";
-            } else if (osName.contains("mac")) {
+                libName = "libchessengine.dll";
+            } 
+            else if (osName.contains("mac")) {
                 libPath = "/native/mac/libchessengine.dylib";
-            } else {
+                libName = "libchessengine.dylib";
+            } 
+            else {
                 // Default to Linux
                 libPath = "/native/linux/libchessengine.so";
+                libName = "libchessengine.so";
             }
             
             System.out.println("Loading native library from: " + libPath);
-            System.loadLibrary("chessengine");
-        } catch (UnsatisfiedLinkError e) {
+            
+            // Get the library as a resource using class context (not instance)
+            InputStream stream = nativeEngine.class.getResourceAsStream(libPath);
+
+            if (stream == null) {
+                throw new FileNotFoundException("Could not find library: " + libPath);
+            }
+            
+            // Create a temp file to extract the library to
+            File tempFile = File.createTempFile("libchessengine", 
+                libPath.endsWith(".dll") ? ".dll" : 
+                libPath.endsWith(".dylib") ? ".dylib" : ".so");
+            tempFile.deleteOnExit();
+            
+            // Copy the library to the temp file
+            FileOutputStream out = new FileOutputStream(tempFile);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = stream.read(buffer)) != -1) {
+                out.write(buffer, 0, length);
+            }
+            stream.close();
+            out.close();
+            
+            // Load the library from the temp file
+            System.load(tempFile.getAbsolutePath());
+            System.out.println("Successfully loaded library from temp file: " + tempFile.getAbsolutePath());
+        } catch (Exception e) {
             System.err.println("Failed to load native library: " + e.getMessage());
             e.printStackTrace();
         }
@@ -100,7 +137,7 @@ public class nativeEngine {
      * Check if a move is legal.
      * 
      * @param fen FEN string representing the board position
-     * @param move Move in algebraic notation (e.g., "e2e4")
+     * @param move Move stream algebraic notation (e.g., "e2e4")
      * @return true if the move is legal, false otherwise
      */
     public native boolean isMoveLegal(String fen, String move);

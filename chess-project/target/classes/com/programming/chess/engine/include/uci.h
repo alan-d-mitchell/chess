@@ -8,6 +8,12 @@
  
  #include "engine.h"
  
+ /* Forward declarations for types defined in search.h */
+ struct SearchResult;
+ struct SearchParams;
+ typedef struct SearchResult SearchResult;
+ typedef struct SearchParams SearchParams;
+ 
  /* UCI option types */
  typedef enum {
      UCI_OPTION_CHECK,    /* Boolean option */
