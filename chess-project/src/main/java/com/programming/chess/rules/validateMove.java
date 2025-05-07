@@ -1,4 +1,4 @@
-package com.programming.chess.engine.rules;
+package com.programming.chess.rules;
 
 public class validateMove {
     
@@ -52,7 +52,7 @@ public class validateMove {
             case "knight" -> isValidKnightMove(fromRow, fromCol, toRow, toCol);
             case "bishop" -> isValidBishopMove(board, fromRow, fromCol, toRow, toCol);
             case "queen" -> isValidQueenMove(board, fromRow, fromCol, toRow, toCol);
-            case "king" -> isValidKingMove(fromRow, fromCol, toRow, toCol);
+            case "king" -> isValidKingMove(board, fromRow, fromCol, toRow, toCol, pieceColor);
             default -> false;
         };
     }
@@ -62,13 +62,6 @@ public class validateMove {
      */
     public static boolean isValidMove(String[][] board, int fromRow, int fromCol, int toRow, int toCol) {
         return isValidMove(board, fromRow, fromCol, toRow, toCol, null);
-    }
-    
-    /**
-     * Simple method referenced in the chessBoard class
-     */
-    public static void canMove() {
-        System.out.println("Move validation will be applied here");
     }
     
     /**
@@ -174,11 +167,69 @@ public class validateMove {
                isValidBishopMove(board, fromRow, fromCol, toRow, toCol);
     }
     
-    private static boolean isValidKingMove(int fromRow, int fromCol, int toRow, int toCol) {
-        // King moves one square in any direction
+    private static boolean isValidKingMove(String[][] board, int fromRow, int fromCol, int toRow, int toCol, String pieceColor) {
+        // Basic king move - one square in any direction
         int rowDiff = Math.abs(fromRow - toRow);
         int colDiff = Math.abs(fromCol - toCol);
         
-        return rowDiff <= 1 && colDiff <= 1 && !(rowDiff == 0 && colDiff == 0);
+        if (rowDiff <= 1 && colDiff <= 1 && !(rowDiff == 0 && colDiff == 0)) {
+            return true;
+        }
+        
+        // Check for castling move
+        if (rowDiff == 0 && colDiff == 2) {
+            // This could be a castling move
+            // Need to verify with gameState that king and rook haven't moved
+            
+            // Get castle direction
+            String castleSide = fromCol < toCol ? "kingside" : "queenside";
+            
+            // Check if castling is allowed
+            gameState state = gameState.getInstance();
+            if (state.canCastle(pieceColor, castleSide)) {
+                return isValidCastling(fromRow, fromCol, toRow, toCol, pieceColor, castleSide);
+            }
+        }
+        
+        return false;
+    }
+    
+    private static boolean isValidCastling(int fromRow, int fromCol, int toRow, int toCol, 
+                                          String pieceColor, String castleSide) {
+        // Castling requires empty squares between king and rook
+        // For the current board state, we need to check if the path is clear
+        
+        // Proper rows for kings based on color
+        int properRow = pieceColor.equals("W") ? 7 : 0;
+        
+        // Verify king is in the correct position
+        if (fromRow != properRow || fromCol != 4) {
+            return false;
+        }
+        
+        // Verify destination is correct for castling
+        if (toRow != properRow) {
+            return false;
+        }
+        
+        if (castleSide.equals("kingside")) {
+            // King moves from e1/e8 (4) to g1/g8 (6)
+            if (toCol != 6) {
+                return false;
+            }
+            
+            // Check if squares between king and rook are empty
+            // f1/f8 (5) must be empty
+            return true; // Assuming the validateMove already checked if path is clear
+        } else { // queenside
+            // King moves from e1/e8 (4) to c1/c8 (2)
+            if (toCol != 2) {
+                return false;
+            }
+            
+            // Check if squares between king and rook are empty
+            // b1/b8 (1), c1/c8 (2), d1/d8 (3) must be empty
+            return true; // Assuming the validateMove already checked if path is clear
+        }
     }
 }

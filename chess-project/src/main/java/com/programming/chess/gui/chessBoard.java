@@ -19,8 +19,8 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-import com.programming.chess.engine.rules.gameState;
-import com.programming.chess.engine.rules.validateMove;
+import com.programming.chess.rules.gameState;
+import com.programming.chess.rules.validateMove;
 
 public class chessBoard extends JFrame {
 
@@ -139,8 +139,12 @@ public class chessBoard extends JFrame {
                             // Complete the move
                             board[row][col] = draggedPiece;
                             
+                            // Handle castling if this is a king moving 2 squares
+                            if (draggedPiece.startsWith("king") && Math.abs(dragSourceCol - col) == 2) {
+                                handleCastling(dragSourceRow, dragSourceCol, row, col);
+                            }
+                            
                             // Record the move and switch turns in game state
-                            // This is where we will update the turn - ONLY after a valid move
                             state.makeMove(dragSourceRow, dragSourceCol, row, col, draggedPiece, capturedPiece);
                             
                             if (capturedPiece != null) {
@@ -198,6 +202,33 @@ public class chessBoard extends JFrame {
         pack();
 
         setMinimumSize(new Dimension(400, 400));
+    }
+    
+    /**
+     * Handle castling move by moving the rook to its new position
+     */
+    private void handleCastling(int kingFromRow, int kingFromCol, int kingToRow, int kingToCol) {
+        String pieceColor = draggedPiece.substring(draggedPiece.length() - 1);
+        
+        if (kingToCol > kingFromCol) {
+            // Kingside castling (O-O)
+            // Move the kingside rook from h1/h8 to f1/f8
+            String rookPiece = "rook" + pieceColor;
+            board[kingToRow][5] = rookPiece; // Move to f1/f8
+            board[kingToRow][7] = null;     // Remove from h1/h8
+            System.out.println("Kingside castling: Moved " + rookPiece + " from " + 
+                              (char)('a' + 7) + (8 - kingToRow) + " to " + 
+                              (char)('a' + 5) + (8 - kingToRow));
+        } else {
+            // Queenside castling (O-O-O)
+            // Move the queenside rook from a1/a8 to d1/d8
+            String rookPiece = "rook" + pieceColor;
+            board[kingToRow][3] = rookPiece; // Move to d1/d8
+            board[kingToRow][0] = null;     // Remove from a1/a8
+            System.out.println("Queenside castling: Moved " + rookPiece + " from " + 
+                              (char)('a' + 0) + (8 - kingToRow) + " to " + 
+                              (char)('a' + 3) + (8 - kingToRow));
+        }
     }
 
     private void calculateBoardDimensions() {
