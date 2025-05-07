@@ -18,6 +18,8 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import com.programming.chess.engine.rules.validateMove;
+
 public class chessBoard extends JFrame {
 
     private final int BOARD_SIZE = 8;
@@ -61,6 +63,8 @@ public class chessBoard extends JFrame {
                 if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
                     System.out.println("Clicked on square: " + (char)('a' + col) + (8 - row));
                     System.out.println("Piece at this position: " + (board[row][col] != null ? board[row][col] : "empty"));
+                    
+                    validateMove.canMove();
                 }
             }
         });
