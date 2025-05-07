@@ -16,7 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
@@ -49,6 +51,13 @@ public class chessBoard extends JFrame {
     
     // Track whose turn it is for the move display
     private boolean isWhiteTurn = true;
+    
+    // Engine integration
+    private engineIntegration engineIntegration;
+    private boolean useEngine = true;
+    private int engineSearchDepth = 6;
+    private JButton engineMoveButton;
+    private JButton trainEngineButton;
 
     public chessBoard() {
         super("Chess");
@@ -137,8 +146,8 @@ public class chessBoard extends JFrame {
                     
                     // Make sure the release is within the board
                     if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
-                        // Check if this is a valid move
-                        validMove = validateMove.isValidMove(board, dragSourceRow, dragSourceCol, row, col, draggedPiece);
+                        // Check if this is a valid move - use our engine integration if available
+                        validMove = validateBoardMove(dragSourceRow, dragSourceCol, row, col, draggedPiece);
                         
                         if (validMove) {
                             // Capture the piece at destination if any
@@ -217,6 +226,9 @@ public class chessBoard extends JFrame {
             }
         });
         
+        // Initialize the engine integration
+        initializeEngine();
+        
         // Set up the layout with board on left and move history on right
         setLayout(new BorderLayout());
         add(chessDisplay, BorderLayout.CENTER);
@@ -226,6 +238,151 @@ public class chessBoard extends JFrame {
         pack();
 
         setMinimumSize(new Dimension(550, 400));
+    }
+    
+    /**
+     * Initialize the chess engine integration
+     */
+    private void initializeEngine() {
+        try {
+            engineIntegration = engineIntegration.getInstance();
+            System.out.println("Chess engine integration initialized");
+            
+            // Create button for requesting engine moves
+            engineMoveButton = new JButton("Engine Move");
+            engineMoveButton.addActionListener(e -> makeEngineMove());
+            
+            // Create button for training the engine
+            trainEngineButton = new JButton("Train Engine");
+            trainEngineButton.addActionListener(e -> {
+                int games = 100; // Default value
+                String input = JOptionPane.showInputDialog(
+                    this, 
+                    "Number of self-play games for training:", 
+                    "Train Engine", 
+                    JOptionPane.QUESTION_MESSAGE);
+                    
+                if (input != null && !input.isEmpty()) {
+                    try {
+                        games = Integer.parseInt(input);
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(
+                            this, 
+                            "Invalid number, using default of 100 games", 
+                            "Input Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+                
+                engineIntegration.trainEngine(games);
+            });
+            
+            // Add buttons to a control panel
+            JPanel controlPanel = new JPanel();
+            controlPanel.add(engineMoveButton);
+            controlPanel.add(trainEngineButton);
+            
+            // Add control panel to the bottom of the chess display
+            add(controlPanel, BorderLayout.SOUTH);
+        } catch (Exception e) {
+            System.err.println("Failed to initialize engine integration: " + e.getMessage());
+            e.printStackTrace();
+            useEngine = false;
+        }
+    }
+    
+    /**
+     * Make the engine calculate and play a move
+     */
+    private void makeEngineMove() {
+        if (!useEngine || engineIntegration == null) {
+            state.setStatusMessage("Engine not available");
+            chessDisplay.repaint();
+            return;
+        }
+        
+        // Only allow engine to move if it's the current player's turn
+        String currentPlayer = state.getCurrentPlayer();
+        state.setStatusMessage("Engine thinking...");
+        chessDisplay.repaint();
+        
+        // Run engine calculation in a separate thread to avoid UI freezing
+        new Thread(() -> {
+            try {
+                // Get best move from engine
+                int[] move = engineIntegration.getBestMove(board, engineSearchDepth);
+                
+                if (move != null && move.length == 4) {
+                    int fromRow = move[0];
+                    int fromCol = move[1];
+                    int toRow = move[2];
+                    int toCol = move[3];
+                    
+                    // Execute on the Event Dispatch Thread
+                    SwingUtilities.invokeLater(() -> {
+                        // Get the piece and any captured piece
+                        String piece = board[fromRow][fromCol];
+                        String capturedPiece = board[toRow][toCol];
+                        
+                        // Check if this is a castling move
+                        boolean isCastling = piece.startsWith("king") && Math.abs(fromCol - toCol) == 2;
+                        
+                        // Make the move
+                        board[toRow][toCol] = piece;
+                        board[fromRow][fromCol] = null;
+                        
+                        // Handle castling if needed
+                        if (isCastling) {
+                            handleCastling(fromRow, fromCol, toRow, toCol);
+                        }
+                        
+                        // Record the move in game state
+                        state.makeMove(fromRow, fromCol, toRow, toCol, piece, capturedPiece);
+                        
+                        // Add to move history
+                        moveHistoryPanel.addMove(
+                            fromRow, fromCol, toRow, toCol, 
+                            piece, capturedPiece, isCastling,
+                            board, isWhiteTurn);
+                        
+                        // Toggle turn
+                        isWhiteTurn = !isWhiteTurn;
+                        
+                        // Update display
+                        chessDisplay.repaint();
+                        
+                        System.out.println("Engine move: " + piece + " from " + 
+                            (char)('a' + fromCol) + (8 - fromRow) + " to " + 
+                            (char)('a' + toCol) + (8 - toRow));
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        state.setStatusMessage("Engine could not find a move");
+                        chessDisplay.repaint();
+                    });
+                }
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> {
+                    state.setStatusMessage("Engine error: " + e.getMessage());
+                    chessDisplay.repaint();
+                });
+            }
+        }).start();
+    }
+    
+    /**
+     * Validate a move using both our basic validation and the engine if available
+     */
+    private boolean validateBoardMove(int fromRow, int fromCol, int toRow, int toCol, String piece) {
+        // First check with our basic validation
+        boolean basicValid = validateMove.isValidMove(board, fromRow, fromCol, toRow, toCol, piece);
+        
+        // If basic validation passes and engine is available, check with engine
+        if (basicValid && useEngine && engineIntegration != null) {
+            return engineIntegration.isMoveLegal(board, fromRow, fromCol, toRow, toCol);
+        }
+        
+        return basicValid;
     }
     
     /**

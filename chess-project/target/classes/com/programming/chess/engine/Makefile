@@ -55,8 +55,8 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 # JNI Header generation - compiles the Java class and generates C headers
 jni_headers:
 	@mkdir -p $(SRC_DIR)/jni
-	@echo "Generating JNI headers from $(JNI_DIR)/NativeEngine.java"
-	javac -h $(SRC_DIR)/jni $(JNI_DIR)/NativeEngine.java
+	@echo "Generating JNI headers from $(JNI_DIR)/nativeEngine.java"
+	javac -h $(SRC_DIR)/jni $(JNI_DIR)/nativeEngine.java
 
 # Clean build artifacts
 clean:
