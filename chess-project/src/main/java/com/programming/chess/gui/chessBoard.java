@@ -1,5 +1,6 @@
 package com.programming.chess.gui;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -28,6 +29,7 @@ public class chessBoard extends JFrame {
     private Map<String, ImageIcon> pieceImages = new HashMap<>();
     private String[][] board = new String[BOARD_SIZE][BOARD_SIZE];
     private JPanel chessDisplay;
+    private moveDisplay moveHistoryPanel; // Add the move display panel
     
     // Board dimensions
     private int squareSize;
@@ -44,14 +46,20 @@ public class chessBoard extends JFrame {
     
     // Game state reference
     private gameState state;
+    
+    // Track whose turn it is for the move display
+    private boolean isWhiteTurn = true;
 
     public chessBoard() {
         super("Chess");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setPreferredSize(new Dimension(800, 800));
+        setPreferredSize(new Dimension(950, 800)); // Increased width to accommodate move history
 
         // Initialize game state
         state = gameState.getInstance();
+        
+        // Initialize move history panel
+        moveHistoryPanel = new moveDisplay();
         
         loadImages();
         initializeBoard();
@@ -136,16 +144,28 @@ public class chessBoard extends JFrame {
                             // Capture the piece at destination if any
                             String capturedPiece = board[row][col];
                             
+                            // Check if this is a castling move
+                            boolean isCastling = draggedPiece.startsWith("king") && Math.abs(dragSourceCol - col) == 2;
+                            
                             // Complete the move
                             board[row][col] = draggedPiece;
                             
-                            // Handle castling if this is a king moving 2 squares
-                            if (draggedPiece.startsWith("king") && Math.abs(dragSourceCol - col) == 2) {
+                            // Handle castling if needed
+                            if (isCastling) {
                                 handleCastling(dragSourceRow, dragSourceCol, row, col);
                             }
                             
-                            // Record the move and switch turns in game state
+                            // Record the move in game state
                             state.makeMove(dragSourceRow, dragSourceCol, row, col, draggedPiece, capturedPiece);
+                            
+                            // Add the move to the move history display
+                            moveHistoryPanel.addMove(
+                                dragSourceRow, dragSourceCol, row, col, 
+                                draggedPiece, capturedPiece, isCastling,
+                                board, isWhiteTurn);
+                            
+                            // Toggle turn for move display
+                            isWhiteTurn = !isWhiteTurn;
                             
                             if (capturedPiece != null) {
                                 System.out.println("Captured: " + capturedPiece);
@@ -197,11 +217,15 @@ public class chessBoard extends JFrame {
             }
         });
         
+        // Set up the layout with board on left and move history on right
+        setLayout(new BorderLayout());
+        add(chessDisplay, BorderLayout.CENTER);
+        add(moveHistoryPanel, BorderLayout.EAST);
+        
         setResizable(true);
-        add(chessDisplay);
         pack();
 
-        setMinimumSize(new Dimension(400, 400));
+        setMinimumSize(new Dimension(550, 400));
     }
     
     /**
@@ -322,6 +346,12 @@ public class chessBoard extends JFrame {
         
         // Reset game state
         state.resetGame();
+        
+        // Reset move history
+        moveHistoryPanel.clearHistory();
+        
+        // Reset turn tracking
+        isWhiteTurn = true;
         
         // Debug the board state after initialization
         System.out.println("Board initialized:");

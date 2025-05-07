@@ -1,4 +1,6 @@
-/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/engine/rules/validateMove.java
-/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/engine/rules/gameState.java
+/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/rules/gameState.java
 /home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/gui/chessBoard.java
-/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/engine/rules/detectCheck.java
+/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/rules/convertToSAN.java
+/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/rules/detectCheck.java
+/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/gui/moveDisplay.java
+/home/alanmitchell/Programming/Chess/chess-project/src/main/java/com/programming/chess/rules/validateMove.java

@@ -155,6 +155,10 @@ public class gameState {
     public void setStatusMessage(String message) {
         statusMessage = message;
     }
+
+    public Move createTempMove(int fromRow, int fromCol, int toRow, int toCol, String piece, String capturedPiece) {
+        return new Move(fromRow, fromCol, toRow, toCol, piece, capturedPiece);
+    }
     
     /**
      * Check if a piece belongs to the current player
@@ -166,9 +170,9 @@ public class gameState {
     }
 
     public class Move {
-        private int fromRow, fromCol, toRow, toCol;
-        private String piece;
-        private String capturedPiece;
+        public int fromRow, fromCol, toRow, toCol;
+        public String piece;
+        public String capturedPiece;
         private boolean isCastling = false;
         private String castlingSide = null;
         
