@@ -1,13 +1,18 @@
 package com.programming.chess.gui;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Polygon;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
@@ -47,6 +52,15 @@ public class chessBoard extends JFrame {
     private int dragY = -1;
     private String draggedPiece = null;
     
+    // Variables for drawing arrows
+    private List<Arrow> arrows = new ArrayList<>();
+    private boolean isDrawingArrow = false;
+    private int arrowStartRow = -1;
+    private int arrowStartCol = -1;
+    private int arrowEndRow = -1;
+    private int arrowEndCol = -1;
+    private boolean shiftPressed = false;
+    
     // Game state reference
     private gameState state;
     
@@ -61,6 +75,20 @@ public class chessBoard extends JFrame {
     
     // Track pawns that can do en passant captures
     private List<int[]> enPassantPawns = new ArrayList<>();
+    
+    // Inner class to represent an arrow
+    private class Arrow {
+        int startRow, startCol, endRow, endCol;
+        Color color;
+        
+        public Arrow(int startRow, int startCol, int endRow, int endCol, Color color) {
+            this.startRow = startRow;
+            this.startCol = startCol;
+            this.endRow = endRow;
+            this.endCol = endCol;
+            this.color = color;
+        }
+    }
 
     public chessBoard() {
         super("Chess");
@@ -85,6 +113,16 @@ public class chessBoard extends JFrame {
                 drawBoard(g);
                 drawPieces(g);
                 
+                // Draw all saved arrows
+                for (Arrow arrow : arrows) {
+                    drawArrow(g, arrow.startRow, arrow.startCol, arrow.endRow, arrow.endCol, arrow.color);
+                }
+                
+                // Draw the arrow currently being created
+                if (isDrawingArrow) {
+                    drawArrow(g, arrowStartRow, arrowStartCol, arrowEndRow, arrowEndCol, Color.RED);
+                }
+                
                 // Draw the dragged piece last so it appears on top
                 if (isDragging && draggedPiece != null && pieceImages.containsKey(draggedPiece)) {
                     ImageIcon icon = pieceImages.get(draggedPiece);
@@ -104,7 +142,7 @@ public class chessBoard extends JFrame {
 
         chessDisplay.setBackground(Color.DARK_GRAY);
         
-        // Mouse press for starting drag
+        // Mouse press for starting drag or arrow
         chessDisplay.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -113,27 +151,36 @@ public class chessBoard extends JFrame {
                 
                 // Make sure the click is within the board
                 if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
-                    String piece = board[row][col];
-                    
-                    if (piece != null) {
-                        // Only allow dragging pieces of the current player
-                        if (state.isCurrentPlayersPiece(piece)) {
-                            dragSourceRow = row;
-                            dragSourceCol = col;
-                            draggedPiece = piece;
-                            isDragging = true;
-                            dragX = e.getX();
-                            dragY = e.getY();
-                            
-                            // Temporarily remove the piece from the board during dragging
-                            board[row][col] = null;
-                            
-                            chessDisplay.repaint();
-                        } else {
-                            state.setStatusMessage("It's " + 
-                                (state.getCurrentPlayer().equals("W") ? "White" : "Black") + 
-                                "'s turn to move");
-                            chessDisplay.repaint();
+                    if (shiftPressed) {
+                        // Start drawing an arrow
+                        isDrawingArrow = true;
+                        arrowStartRow = row;
+                        arrowStartCol = col;
+                        arrowEndRow = row;
+                        arrowEndCol = col;
+                    } else {
+                        String piece = board[row][col];
+                        
+                        if (piece != null) {
+                            // Only allow dragging pieces of the current player
+                            if (state.isCurrentPlayersPiece(piece)) {
+                                dragSourceRow = row;
+                                dragSourceCol = col;
+                                draggedPiece = piece;
+                                isDragging = true;
+                                dragX = e.getX();
+                                dragY = e.getY();
+                                
+                                // Temporarily remove the piece from the board during dragging
+                                board[row][col] = null;
+                                
+                                chessDisplay.repaint();
+                            } else {
+                                state.setStatusMessage("It's " + 
+                                    (state.getCurrentPlayer().equals("W") ? "White" : "Black") + 
+                                    "'s turn to move");
+                                chessDisplay.repaint();
+                            }
                         }
                     }
                 }
@@ -141,7 +188,21 @@ public class chessBoard extends JFrame {
             
             @Override
             public void mouseReleased(MouseEvent e) {
-                if (isDragging) {
+                if (isDrawingArrow) {
+                    int col = (e.getX() - xOffset) / squareSize;
+                    int row = (e.getY() - yOffset) / squareSize;
+                    
+                    // Make sure the release is within the board
+                    if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
+                        // Only add arrow if start and end are different
+                        if (arrowStartRow != row || arrowStartCol != col) {
+                            arrows.add(new Arrow(arrowStartRow, arrowStartCol, row, col, Color.RED));
+                        }
+                    }
+                    
+                    isDrawingArrow = false;
+                    chessDisplay.repaint();
+                } else if (isDragging) {
                     int col = (e.getX() - xOffset) / squareSize;
                     int row = (e.getY() - yOffset) / squareSize;
                     
@@ -230,6 +291,9 @@ public class chessBoard extends JFrame {
                             System.out.println("Valid move: " + draggedPiece + " from " + 
                                               (char)('a' + dragSourceCol) + (8 - dragSourceRow) + " to " + 
                                               (char)('a' + col) + (8 - row));
+                            
+                            // Clear arrows after making a move
+                            clearArrows();
                         } else {
                             // Invalid move, return the piece to its original position
                             board[dragSourceRow][dragSourceCol] = draggedPiece;
@@ -252,19 +316,63 @@ public class chessBoard extends JFrame {
                     chessDisplay.repaint();
                 }
             }
+            
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    clearArrows();
+                }
+            }
         });
         
         // Mouse motion for dragging
         chessDisplay.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (isDragging) {
+                if (isDrawingArrow) {
+                    int col = (e.getX() - xOffset) / squareSize;
+                    int row = (e.getY() - yOffset) / squareSize;
+                    
+                    // Make sure it's within the board
+                    if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
+                        arrowEndRow = row;
+                        arrowEndCol = col;
+                        chessDisplay.repaint();
+                    }
+                } else if (isDragging) {
                     dragX = e.getX();
                     dragY = e.getY();
                     chessDisplay.repaint();
                 }
             }
         });
+        
+        // Key listener for shift key
+        addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
+                    shiftPressed = true;
+                }
+            }
+            
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
+                    shiftPressed = false;
+                    
+                    // Cancel any arrow drawing in progress when shift is released
+                    if (isDrawingArrow) {
+                        isDrawingArrow = false;
+                        chessDisplay.repaint();
+                    }
+                }
+            }
+        });
+        
+        // Make sure the frame can receive key events
+        setFocusable(true);
+        requestFocus();
         
         addComponentListener(new ComponentAdapter() {
             @Override
@@ -282,6 +390,46 @@ public class chessBoard extends JFrame {
         pack();
 
         setMinimumSize(new Dimension(550, 400));
+    }
+    
+    /**
+     * Helper method to draw an arrow
+     */
+    private void drawArrow(Graphics g, int startRow, int startCol, int endRow, int endCol, Color color) {
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setColor(color);
+        g2d.setStroke(new BasicStroke(squareSize / 8)); // Arrow line thickness
+        
+        // Calculate center points of the squares
+        int startX = xOffset + startCol * squareSize + squareSize / 2;
+        int startY = yOffset + startRow * squareSize + squareSize / 2;
+        int endX = xOffset + endCol * squareSize + squareSize / 2;
+        int endY = yOffset + endRow * squareSize + squareSize / 2;
+        
+        // Draw the arrow line
+        g2d.drawLine(startX, startY, endX, endY);
+        
+        // Draw the arrow head
+        double angle = Math.atan2(endY - startY, endX - startX);
+        int arrowSize = squareSize / 3;
+        
+        // Create arrowhead
+        Polygon arrowHead = new Polygon();
+        arrowHead.addPoint(endX, endY);
+        arrowHead.addPoint((int) (endX - arrowSize * Math.cos(angle - Math.PI/6)), 
+                           (int) (endY - arrowSize * Math.sin(angle - Math.PI/6)));
+        arrowHead.addPoint((int) (endX - arrowSize * Math.cos(angle + Math.PI/6)), 
+                           (int) (endY - arrowSize * Math.sin(angle + Math.PI/6)));
+        
+        g2d.fillPolygon(arrowHead);
+    }
+    
+    /**
+     * Clear all arrows from the board
+     */
+    private void clearArrows() {
+        arrows.clear();
+        chessDisplay.repaint();
     }
     
     /**
@@ -470,6 +618,9 @@ public class chessBoard extends JFrame {
         
         // Reset en passant pawns
         enPassantPawns.clear();
+        
+        // Reset arrows
+        arrows.clear();
         
         // Reset game state
         state.resetGame();
