@@ -9,6 +9,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +19,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import com.programming.chess.engine.rules.gameState;
 import com.programming.chess.engine.rules.validateMove;
 
 public class chessBoard extends JFrame {
@@ -27,16 +29,30 @@ public class chessBoard extends JFrame {
     private String[][] board = new String[BOARD_SIZE][BOARD_SIZE];
     private JPanel chessDisplay;
     
-    // Declare these variables but don't set them to constants
+    // Board dimensions
     private int squareSize;
     private int xOffset = 0;
     private int yOffset = 0;
+    
+    // Variables for dragging pieces
+    private boolean isDragging = false;
+    private int dragSourceRow = -1;
+    private int dragSourceCol = -1;
+    private int dragX = -1;
+    private int dragY = -1;
+    private String draggedPiece = null;
+    
+    // Game state reference
+    private gameState state;
 
     public chessBoard() {
         super("Chess");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setPreferredSize(new Dimension(800, 800));
 
+        // Initialize game state
+        state = gameState.getInstance();
+        
         loadImages();
         initializeBoard();
         
@@ -48,23 +64,124 @@ public class chessBoard extends JFrame {
 
                 drawBoard(g);
                 drawPieces(g);
+                
+                // Draw the dragged piece last so it appears on top
+                if (isDragging && draggedPiece != null && pieceImages.containsKey(draggedPiece)) {
+                    ImageIcon icon = pieceImages.get(draggedPiece);
+                    // Center the piece on the cursor
+                    g.drawImage(icon.getImage(), 
+                               dragX - squareSize/2, 
+                               dragY - squareSize/2, 
+                               squareSize, squareSize, null);
+                }
+                
+                // Draw status message
+                g.setColor(Color.WHITE);
+                g.setFont(new Font("SansSerif", Font.BOLD, 16));
+                g.drawString(state.getStatusMessage(), 10, getHeight() - 20);
             }
         };
 
         chessDisplay.setBackground(Color.DARK_GRAY);
         
+        // Mouse press for starting drag
         chessDisplay.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 int col = (e.getX() - xOffset) / squareSize;
                 int row = (e.getY() - yOffset) / squareSize;
                 
                 // Make sure the click is within the board
                 if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
-                    System.out.println("Clicked on square: " + (char)('a' + col) + (8 - row));
-                    System.out.println("Piece at this position: " + (board[row][col] != null ? board[row][col] : "empty"));
+                    String piece = board[row][col];
                     
-                    validateMove.canMove();
+                    if (piece != null) {
+                        // Only allow dragging pieces of the current player
+                        if (state.isCurrentPlayersPiece(piece)) {
+                            dragSourceRow = row;
+                            dragSourceCol = col;
+                            draggedPiece = piece;
+                            isDragging = true;
+                            dragX = e.getX();
+                            dragY = e.getY();
+                            
+                            // Temporarily remove the piece from the board during dragging
+                            board[row][col] = null;
+                            
+                            chessDisplay.repaint();
+                        } else {
+                            state.setStatusMessage("It's " + 
+                                (state.getCurrentPlayer().equals("W") ? "White" : "Black") + 
+                                "'s turn to move");
+                            chessDisplay.repaint();
+                        }
+                    }
+                }
+            }
+            
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (isDragging) {
+                    int col = (e.getX() - xOffset) / squareSize;
+                    int row = (e.getY() - yOffset) / squareSize;
+                    
+                    boolean validMove = false;
+                    
+                    // Make sure the release is within the board
+                    if (col >= 0 && col < BOARD_SIZE && row >= 0 && row < BOARD_SIZE) {
+                        // Check if this is a valid move
+                        validMove = validateMove.isValidMove(board, dragSourceRow, dragSourceCol, row, col, draggedPiece);
+                        
+                        if (validMove) {
+                            // Capture the piece at destination if any
+                            String capturedPiece = board[row][col];
+                            
+                            // Complete the move
+                            board[row][col] = draggedPiece;
+                            
+                            // Record the move and switch turns in game state
+                            // This is where we will update the turn - ONLY after a valid move
+                            state.makeMove(dragSourceRow, dragSourceCol, row, col, draggedPiece, capturedPiece);
+                            
+                            if (capturedPiece != null) {
+                                System.out.println("Captured: " + capturedPiece);
+                            }
+                            
+                            System.out.println("Valid move: " + draggedPiece + " from " + 
+                                              (char)('a' + dragSourceCol) + (8 - dragSourceRow) + " to " + 
+                                              (char)('a' + col) + (8 - row));
+                        } else {
+                            // Invalid move, return the piece to its original position
+                            board[dragSourceRow][dragSourceCol] = draggedPiece;
+                            state.setStatusMessage("Invalid move. " + 
+                                (state.getCurrentPlayer().equals("W") ? "White" : "Black") + 
+                                "'s turn to move");
+                            System.out.println("Invalid move attempted");
+                        }
+                    } else {
+                        // Released outside the board, return piece to original position
+                        board[dragSourceRow][dragSourceCol] = draggedPiece;
+                    }
+                    
+                    // Reset drag variables
+                    isDragging = false;
+                    draggedPiece = null;
+                    dragSourceRow = -1;
+                    dragSourceCol = -1;
+                    
+                    chessDisplay.repaint();
+                }
+            }
+        });
+        
+        // Mouse motion for dragging
+        chessDisplay.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (isDragging) {
+                    dragX = e.getX();
+                    dragY = e.getY();
+                    chessDisplay.repaint();
                 }
             }
         });
@@ -77,7 +194,6 @@ public class chessBoard extends JFrame {
         });
         
         setResizable(true);
-        
         add(chessDisplay);
         pack();
 
@@ -97,6 +213,7 @@ public class chessBoard extends JFrame {
     private void drawBoard(Graphics g) {
         Color lightSquare = new Color(204, 219, 255);
         Color darkSquare = new Color(121, 154, 176);
+        Color dragSourceHighlight = new Color(255, 165, 0, 120); // Orange with transparency
 
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
@@ -106,6 +223,12 @@ public class chessBoard extends JFrame {
                 int x = xOffset + col * squareSize;
                 int y = yOffset + row * squareSize;
                 g.fillRect(x, y, squareSize, squareSize);
+                
+                // Highlight source square during drag
+                if (isDragging && row == dragSourceRow && col == dragSourceCol) {
+                    g.setColor(dragSourceHighlight);
+                    g.fillRect(x, y, squareSize, squareSize);
+                }
 
                 int fontSize = Math.max(10, squareSize / 8);
                 g.setFont(new Font("SansSerif", Font.PLAIN, fontSize));
@@ -131,25 +254,21 @@ public class chessBoard extends JFrame {
     private void drawPieces(Graphics g) {
         if (board == null) return;
 
-        System.out.println("Drawing pieces...");
-        int piecesDrawn = 0;
-
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
                 String piece = board[row][col];
 
-                if (piece != null && pieceImages.containsKey(piece)) {
+                // Don't draw the piece being dragged (it will be drawn separately)
+                if (piece != null && pieceImages.containsKey(piece) && 
+                    !(isDragging && row == dragSourceRow && col == dragSourceCol)) {
                     ImageIcon icon = pieceImages.get(piece);
                     int x = xOffset + col * squareSize;
                     int y = yOffset + row * squareSize;
 
                     g.drawImage(icon.getImage(), x, y, squareSize, squareSize, null);
-                    piecesDrawn++;
                 }
             }
         }
-        
-        System.out.println("Pieces drawn: " + piecesDrawn);
     }
 
     private void initializeBoard() {
@@ -169,6 +288,9 @@ public class chessBoard extends JFrame {
             board[0][col] = backRow[col] + "B";
             board[7][col] = backRow[col] + "W";
         }
+        
+        // Reset game state
+        state.resetGame();
         
         // Debug the board state after initialization
         System.out.println("Board initialized:");
